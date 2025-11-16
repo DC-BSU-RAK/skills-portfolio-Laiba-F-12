@@ -1,0 +1,400 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import random
+import sys
+
+# ------------------- Supports the sound -------------------
+# Winsound is used for beep feedback and check if its running on Windows
+try:
+    import winsound
+
+    def play_sound_correct():
+        # For correct answer system beep is played
+        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+
+    def play_sound_wrong():
+        # For wrong answer system beep is played
+        winsound.MessageBeep(winsound.MB_ICONHAND)
+except ImportError:
+    # By using terminal bell withdraw from other programme
+    def play_sound_correct():
+        sys.stdout.write("\a")
+        sys.stdout.flush()
+
+    def play_sound_wrong():
+        sys.stdout.write("\a")
+        sys.stdout.flush()
+
+
+class MathQuizApp:
+    def __init__(self, root):
+        # Main window is stored here
+        self.root = root
+        self.root.title("🧮 Maths Quiz - A+ Version")
+        self.root.geometry("620x580")
+        self.root.resizable(False, False)
+
+        # ---------- Variables of Quiz ----------
+        self.difficulty = 1       # Difficulty selected by user (1-3)
+        self.score = 0            # Score of player
+        self.current_q = 0        # Current question index
+        self.first_attempt = True # Trace if user is answering on first attempt
+        self.time_left = 20       # For each question there is countdown timer
+        self.timer_running = False
+        self.correct_answer = None
+        self.theme = "light"      # Theme state
+
+        # Setup of styles and widgets
+        self._setup_styles()
+        self._create_widgets()
+        self.show_menu()  # This will show difficulty menu at start of programme
+
+    # ---------------- Setup of style and theme ----------------
+    def _setup_styles(self):
+        # Different fonts for UI elements
+        self.title_font = ("Arial Rounded MT Bold", 18)
+        self.header_font = ("Arial", 16, "bold")
+        self.normal_font = ("Arial", 12)
+        self.big_font = ("Arial", 16, "bold")
+
+        # Colors in light theme
+        self.light = {
+            "bg": "#f8f8f8", "fg": "#222222",
+            "button_bg": "#0066cc", "button_active": "#004d99",
+            "positive": "#22cc88", "neutral": "#44ccff",
+            "warning": "#ffaa33", "danger": "#ff5555",
+        }
+
+        # Colors in dark theme
+        self.dark = {
+            "bg": "#1f1f23", "fg": "#e8e8e8",
+            "button_bg": "#1666cc", "button_active": "#0b3f66",
+            "positive": "#2fbf7e", "neutral": "#4fb3ff",
+            "warning": "#ffb86b", "danger": "#ff6b6b",
+        }
+
+        self._apply_theme()  # Initial theme is applied
+
+    def _apply_theme(self):
+        # Based on theme choose palette
+        palette = self.light if self.theme == "light" else self.dark
+        self.bg, self.fg = palette["bg"], palette["fg"]
+        self.button_bg, self.button_active = palette["button_bg"], palette["button_active"]
+        self.positive, self.neutral = palette["positive"], palette["neutral"]
+        self.warning, self.danger = palette["warning"], palette["danger"]
+
+        # This sets window background
+        self.root.configure(bg=self.bg)
+        # Style of progress bar
+        ttk.Style().configure("TProgressbar", troughcolor=self.bg, background=self.neutral)
+
+    # ---------------- Creation of widgets ----------------
+    def _create_widgets(self):
+        # ---------- Title ----------
+        self.title_label = tk.Label(self.root, text="🧠 MATHS QUIZ CHALLENGE 🧠",
+                                    font=self.title_font, bg=self.bg, fg=self.fg)
+        self.title_label.pack(pady=18)
+
+        # This theme is for the toggle button in top right corner
+        top_right = tk.Frame(self.root, bg=self.bg)
+        top_right.place(relx=0.85, rely=0.02)
+        self.theme_btn = tk.Button(top_right, text="Toggle Theme", command=self.toggle_theme,
+                                   bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                   font=("Arial", 9, "bold"), bd=0, relief="flat", width=12)
+        self.theme_btn.pack()
+
+        # ---------- Menu Frame ----------
+        self.menu_frame = tk.Frame(self.root, bg=self.bg)
+        tk.Label(self.menu_frame, text="Select Difficulty Level", font=self.header_font,
+                 bg=self.bg, fg=self.fg).pack(pady=8)
+
+        # Difficulty buttons
+        self.btn_easy = tk.Button(self.menu_frame, text="Easy", command=lambda: self.start_quiz(1),
+                                  bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                  font=("Arial", 12, "bold"), width=18, bd=0)
+        self.btn_mod = tk.Button(self.menu_frame, text="Moderate", command=lambda: self.start_quiz(2),
+                                 bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                 font=("Arial", 12, "bold"), width=18, bd=0)
+        self.btn_adv = tk.Button(self.menu_frame, text="Advanced", command=lambda: self.start_quiz(3),
+                                 bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                 font=("Arial", 12, "bold"), width=18, bd=0)
+
+        self.btn_easy.pack(pady=6)
+        self.btn_mod.pack(pady=6)
+        self.btn_adv.pack(pady=6)
+
+        # Hover effect for buttons
+        for b in (self.btn_easy, self.btn_mod, self.btn_adv, self.theme_btn):
+            b.bind("<Enter>", lambda e, w=b: w.config(bg=self.button_active))
+            b.bind("<Leave>", lambda e, w=b: w.config(bg=self.button_bg))
+
+        # ---------- Quiz Frame ----------
+        self.quiz_frame = tk.Frame(self.root, bg=self.bg)
+
+        # Quiz completion is shown in the progress bar
+        self.progress = ttk.Progressbar(self.quiz_frame, length=420, mode="determinate")
+        self.progress.pack(pady=12)
+
+        # Label for displaying the current question
+        self.question_label = tk.Label(self.quiz_frame, text="", font=self.big_font, bg=self.bg, fg=self.fg)
+        self.question_label.pack(pady=12)
+
+        # Display's the countdown timer
+        self.timer_label = tk.Label(self.quiz_frame, text="⏱ Time left: 20s",
+                                    font=self.normal_font, bg=self.bg, fg=self.positive)
+        self.timer_label.pack(pady=6)
+
+        # Enter value here for user's answer and click submit button
+        entry_frame = tk.Frame(self.quiz_frame, bg=self.bg)
+        entry_frame.pack(pady=6)
+        self.answer_entry = tk.Entry(entry_frame, font=("Arial", 14), justify="center", width=12)
+        self.answer_entry.pack(side="left", padx=6)
+        self.submit_btn = tk.Button(entry_frame, text="Submit", command=self.submit_answer,
+                                    bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                    font=("Arial", 11, "bold"), bd=0)
+        self.submit_btn.pack(side="left")
+
+        # Response label for correct and wrong answers
+        self.feedback_label = tk.Label(self.quiz_frame, text="", font=("Arial", 13, "italic"), bg=self.bg, fg=self.fg)
+        self.feedback_label.pack(pady=8)
+
+        # ---------- Frame for results ----------
+        self.result_frame = tk.Frame(self.root, bg=self.bg)
+        self.result_label = tk.Label(self.result_frame, text="", font=self.big_font, bg=self.bg, fg=self.fg)
+        self.result_label.pack(pady=8)
+        self.rank_label = tk.Label(self.result_frame, text="", font=self.normal_font, bg=self.bg, fg=self.fg)
+        self.rank_label.pack(pady=6)
+
+        # Replay and exit buttons
+        btn_frame = tk.Frame(self.result_frame, bg=self.bg)
+        btn_frame.pack(pady=8)
+        self.play_again_btn = tk.Button(btn_frame, text="Play Again", command=self.play_again,
+                                        bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                        font=("Arial", 11, "bold"), bd=0, width=12)
+        self.exit_btn = tk.Button(btn_frame, text="Exit", command=self.root.destroy,
+                                  bg=self.button_bg, fg="white", activebackground=self.button_active,
+                                  font=("Arial", 11, "bold"), bd=0, width=12)
+        self.play_again_btn.pack(side="left", padx=6)
+        self.exit_btn.pack(side="left", padx=6)
+
+    # ---------------- Menu / Quiz flow ----------------
+    def show_menu(self):
+        # This shows only menu frame
+        self._apply_theme()
+        self._pack_only(self.menu_frame)
+
+    def start_quiz(self, level):
+        # This initializes the variables if quiz
+        self.difficulty = level
+        self.score = 0
+        self.current_q = 0
+        self.first_attempt = True
+        # This shows quiz frame
+        self._pack_only(self.quiz_frame)
+        self._update_progress(animated=False)
+        self.generate_question()
+
+    def generate_question(self):
+        # This checks if quiz is over
+        if self.current_q >= 10:
+            self.show_results()
+            return
+
+        # Progress bar is animated
+        self._update_progress(animated=True)
+
+        # Numbers are generated based on difficulty level
+        n1 = self._random_int(self.difficulty)
+        n2 = self._random_int(self.difficulty)
+        op = random.choice(["+", "-", "*", "/"]) if self.difficulty == 3 else random.choice(["+", "-"])
+
+        # This ensures the division of integer
+        if op == "/":
+            n1 = n1 * n2
+            self.correct_answer = n1 // n2
+        elif op == "*":
+            self.correct_answer = n1 * n2
+        elif op == "+":
+            self.correct_answer = n1 + n2
+        else:
+            self.correct_answer = n1 - n2
+
+        display_op = "÷" if op == "/" else op
+        self.question_label.config(text=f"Question {self.current_q + 1}: {n1} {display_op} {n2} = ?")
+        self.answer_entry.delete(0, tk.END)
+        self.feedback_label.config(text="", fg=self.fg)
+        self.first_attempt = True
+
+        # Reset and start the timer
+        self.time_left = 20
+        self.timer_running = True
+        self._update_timer_label()
+        self._countdown()
+
+    # ---------------- Answer / Feedback ----------------
+    def submit_answer(self):
+        self.timer_running = False
+        raw = self.answer_entry.get().strip()
+
+        # Validation of input
+        if raw == "":
+            messagebox.showwarning("Invalid input", "Please enter a number.")
+            self.timer_running = True
+            self._countdown()
+            return
+        try:
+            value = int(raw)
+        except ValueError:
+            messagebox.showwarning("Invalid input", "Please enter a valid integer.")
+            self.timer_running = True
+            self._countdown()
+            return
+
+        # Correct answer handling
+        if value == self.correct_answer:
+            play_sound_correct()
+            self.score += 10 if self.first_attempt else 5
+            self._show_feedback("✅ Correct!", "positive")
+            self.current_q += 1
+            self.root.after(900, self.generate_question)
+        else:
+            # Wrong answer handling
+            play_sound_wrong()
+            if self.first_attempt:
+                self.first_attempt = False
+                self._show_feedback("❌ Try again!", "danger")
+                self.timer_running = True
+                self._countdown()
+            else:
+                self._show_feedback(f"Wrong! Correct: {self.correct_answer}", "danger")
+                self.current_q += 1
+                self.root.after(1000, self.generate_question)
+
+    # ---------------- Timer logic ----------------
+    def _countdown(self):
+        if not self.timer_running:
+            return
+
+        if self.time_left <= 0:
+            play_sound_wrong()
+            self._show_feedback("⏰ Time's up!", "danger")
+            self.current_q += 1
+            self.timer_running = False
+            self.root.after(1000, self.generate_question)
+            return
+
+        self._update_timer_label()
+        self.time_left -= 1
+        self.root.after(1000, self._countdown)
+
+    def _update_timer_label(self):
+        # Timer is updated to display with color coding
+        self.timer_label.config(text=f"⏱ Time left: {self.time_left}s")
+        if self.time_left > 10:
+            self.timer_label.config(fg=self.positive)
+        elif self.time_left > 5:
+            self.timer_label.config(fg=self.warning)
+        else:
+            self.timer_label.config(fg=self.danger)
+
+    # ---------------- Progress and Results ----------------
+    def _update_progress(self, animated=False):
+        target = (self.current_q / 10) * 100
+        if animated:
+            # Smooth progress animation
+            current = self.progress['value']
+            step = 2 if target > current else -2
+            def fill():
+                nonlocal current
+                if (step > 0 and current < target) or (step < 0 and current > target):
+                    current += step
+                    self.progress['value'] = current
+                    self.root.after(10, fill)
+                else:
+                    self.progress['value'] = target
+            fill()
+        else:
+            self.progress['value'] = target
+
+    def show_results(self):
+        # Display the final score and rank
+        self._pack_only(self.result_frame)
+        self.progress['value'] = 100
+        self.result_label.config(text=f"🎯 Your Final Score: {self.score}/100")
+
+        if self.score > 90:
+            rank, color = "A+", self.positive
+        elif self.score > 80:
+            rank, color = "A", self.neutral
+        elif self.score > 70:
+            rank, color = "B", self.warning
+        elif self.score > 60:
+            rank, color = "C", "#ff884d"
+        else:
+            rank, color = "D", self.danger
+
+        self.rank_label.config(text=f"Your Rank: {rank}", fg=color)
+
+    # ---------------- Helpers ----------------
+    def _random_int(self, difficulty):
+        if difficulty == 1:
+            return random.randint(0, 9)
+        elif difficulty == 2:
+            return random.randint(10, 99)
+        else:
+            return random.randint(10, 99)
+
+    def _pack_only(self, frame):
+        # This shows only the selected frame
+        for f in (self.menu_frame, self.quiz_frame, self.result_frame):
+            f.pack_forget()
+        frame.pack(pady=30)
+
+    def _show_feedback(self, message, kind="neutral"):
+        # Feedback label is animated to indicate the result of answer
+        color = {
+            "positive": self.positive,
+            "neutral": self.neutral,
+            "warning": self.warning,
+            "danger": self.danger
+        }.get(kind, self.neutral)
+        self.feedback_label.config(text=message, fg=color)
+        self.feedback_label.after(140, lambda: self.feedback_label.config(fg=self.fg))
+        self.feedback_label.after(300, lambda: self.feedback_label.config(fg=color))
+
+    def play_again(self):
+        # For another round it returns the user to menu
+        self.show_menu()
+
+    def toggle_theme(self):
+        # Light and dark themes can be switched
+        self.theme = "dark" if self.theme == "light" else "light"
+        self._apply_theme()
+        # Widget colors are updated
+        self.title_label.config(bg=self.bg, fg=self.fg)
+        self.menu_frame.config(bg=self.bg)
+        self.quiz_frame.config(bg=self.bg)
+        self.result_frame.config(bg=self.bg)
+        self.theme_btn.config(bg=self.button_bg, activebackground=self.button_active)
+        for btn in (self.btn_easy, self.btn_mod, self.btn_adv):
+            btn.config(bg=self.button_bg, activebackground=self.button_active)
+        self.question_label.config(bg=self.bg, fg=self.fg)
+        self.timer_label.config(bg=self.bg, fg=self.positive)
+        self.answer_entry.config(bg="white" if self.theme == "light" else "#2b2b2b", fg=self.fg)
+        self.feedback_label.config(bg=self.bg, fg=self.fg)
+        self.result_label.config(bg=self.bg, fg=self.fg)
+        self.rank_label.config(bg=self.bg, fg=self.fg)
+        # Repack visible frame to refresh layout
+        if self.menu_frame.winfo_ismapped():
+            self._pack_only(self.menu_frame)
+        elif self.quiz_frame.winfo_ismapped():
+            self._pack_only(self.quiz_frame)
+        elif self.result_frame.winfo_ismapped():
+            self._pack_only(self.result_frame)
+
+
+if __name__ == "__main__":
+    # This initializes Tkinter window and runs quiz
+    root = tk.Tk()
+    app = MathQuizApp(root)
+    root.mainloop()
