@@ -2,20 +2,20 @@ import tkinter as tk
 import random
 import os
 import threading
-import win32com.client  # ✅ Microsoft speech API
+import win32com.client  # Microsoft speech API
 
 
-# ----------------- TEXT TO SPEECH USING WINDOWS VOICE ----------------- #
+#----- USING WINDOWS VOICE CONVERT TEXT TO SPEECH -----
 
 speaker = win32com.client.Dispatch("SAPI.SpVoice")
 
 def speak(text):
-    # Run speaking asynchronously using threading
+    # By the use of threading run speaking independently
     threading.Thread(target=lambda: speaker.Speak(text, 1), daemon=True).start()
-    # Flag 1 means speak asynchronously (does not block)
+    # Flag 1 means speak independently (does not block)
 
 
-# ----------------- LOAD JOKES FROM FILE ----------------- #
+# ----- FROM FILE LOAD JOKES -----
 
 def load_jokes(filename):
     jokes = []
@@ -31,13 +31,13 @@ def load_jokes(filename):
     return jokes
 
 
-# Determine file path
+# Control file path
 base_path = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(base_path, "randomJokes.txt")
 jokes = load_jokes(file_path)
 
 
-# ----------------- GUI BUTTON FUNCTIONS ----------------- #
+# ----- FUNCTIONS OF GUI BUTTONS -----
 
 def show_random_joke():
     global current_joke
@@ -60,7 +60,7 @@ def quit_app():
     root.destroy()
 
 
-# ----------------- GUI SETUP ----------------- #
+# ----- GUI SETUP -----
 
 root = tk.Tk()
 root.title("Alexa - Tell me a Joke")
