@@ -1,0 +1,352 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
+import os
+
+# ------------------------------
+# FILE STRUCTURE
+# ------------------------------
+
+# This code directly locates the folder where the python file is saved
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Create the full path to the data file
+DATA_FILE = os.path.join(BASE_DIR, "studentMarks.txt")
+
+
+# ------------------------------
+# UTILITY FUNCTIONS
+# ------------------------------
+
+def load_data():
+    """
+    This functionality retrieves all the student data of studentMarks.txt.
+    and expresses it in the form of a list of dictionaries.
+    """
+    students = []
+    try:
+        with open(DATA_FILE, "r") as file:
+            lines = file.readlines()
+
+            # Avoid the first line because it contains the number of students
+            for line in lines[1:]:
+                data = line.strip().split(",")
+
+                # 6 values should be present in each record
+                if len(data) == 6:
+                    code = data[0]
+                    name = data[1]
+
+                    # Coursework and exam marks are changed to integer
+                    c1, c2, c3 = map(int, data[2:5])
+                    exam = int(data[5])
+
+                    # Each student is kept as a dictionary
+                    students.append({
+                        "code": code,
+                        "name": name,
+                        "c1": c1, "c2": c2, "c3": c3,
+                        "coursework": c1 + c2 + c3,
+                        "exam": exam,
+                        "total": c1 + c2 + c3 + exam
+                    })
+    except FileNotFoundError:
+        messagebox.showerror("Error", "studentMarks.txt not found!")
+
+    return students
+
+
+def save_data(students):
+    """
+    Saves all student records back into studentMarks.txt.
+    """
+    with open(DATA_FILE, "w") as f:
+        # First line: number of students
+        f.write(str(len(students)) + "\n")
+
+        # Each student should be written in CSV format
+        for s in students:
+            f.write(f"{s['code']},{s['name']},{s['c1']},{s['c2']},{s['c3']},{s['exam']}\n")
+
+
+def calculate_grade(percent):
+    """
+    Percentage is taken and grades are returned based on rules.
+    """
+    if percent >= 70:
+        return "A"
+    elif percent >= 60:
+        return "B"
+    elif percent >= 50:
+        return "C"
+    elif percent >= 40:
+        return "D"
+    else:
+        return "F"
+
+
+def show_in_table(students):
+    """
+    List od students is entered in the table.
+    Also the bottom line is updated.
+    """
+
+    # Clear previous rows
+    for row in tree.get_children():
+        tree.delete(row)
+
+    # Add each student record into the table
+    for s in students:
+        percent = (s["total"] / 160) * 100
+        grade = calculate_grade(percent)
+
+        tree.insert("", tk.END, values=(
+            s["name"], s["code"], s["coursework"],
+            s["exam"], f"{percent:.2f}%", grade
+        ))
+
+    # Update's summary information
+    if students:
+        avg = sum(s["total"] / 160 * 100 for s in students) / len(students)
+        summary_var.set(f"Students: {len(students)} | Average %: {avg:.2f}")
+    else:
+        summary_var.set("No students to display.")
+
+
+# ------------------------------
+# GUI FUNCTIONS (BUTTON ACTIONS)
+# ------------------------------
+
+def view_all():
+    """Shows all students."""
+    students = load_data()
+    show_in_table(students)
+
+
+def view_individual():
+    """Searches for a student using their code."""
+    students = load_data()
+    code = simpledialog.askstring("Search", "Enter student code:")
+
+    # Check if student exists
+    for s in students:
+        if s["code"] == code:
+            show_in_table([s])
+            return
+
+    messagebox.showinfo("Not found", "Student code not found.")
+
+
+def highest_score():
+    """Displays the student with the highest total marks."""
+    students = load_data()
+    if not students:
+        return
+    top = max(students, key=lambda x: x["total"])
+    show_in_table([top])
+
+
+def lowest_score():
+    """Displays the student with the lowest total marks."""
+    students = load_data()
+    if not students:
+        return
+    low = min(students, key=lambda x: x["total"])
+    show_in_table([low])
+
+
+def sort_records():
+    """
+    Sorts student records by total marks.
+    User chooses ascending or descending.
+    """
+    students = load_data()
+    order = messagebox.askquestion("Sort", "Sort ascending? (No = descending)")
+
+    sorted_list = sorted(
+        students,
+        key=lambda x: x["total"],
+        reverse=(order == "no")   # True for descending
+    )
+    show_in_table(sorted_list)
+
+
+def add_record():
+    """
+    New student record is added.
+    And student details are asked.
+    """
+
+    students = load_data()
+
+    # Ask for student code
+    code = simpledialog.askstring("Add", "Enter student code (1000-9999):")
+
+    # Validate student code
+    if not code or not code.isdigit() or not (1000 <= int(code) <= 9999):
+        messagebox.showerror("Error", "Invalid student code!")
+        return
+
+    # Check if code already exists
+    if any(s["code"] == code for s in students):
+        messagebox.showerror("Error", "Student code already exists!")
+        return
+
+    # Ask name
+    name = simpledialog.askstring("Add", "Enter student name:")
+    if not name:
+        messagebox.showerror("Error", "Name cannot be empty!")
+        return
+
+    # Ask marks
+    try:
+        c1 = int(simpledialog.askstring("Add", "Coursework 1 (0-20):"))
+        c2 = int(simpledialog.askstring("Add", "Coursework 2 (0-20):"))
+        c3 = int(simpledialog.askstring("Add", "Coursework 3 (0-20):"))
+        exam = int(simpledialog.askstring("Add", "Exam mark (0-100):"))
+
+        # Validate ranges
+        if not all(0 <= x <= 20 for x in [c1, c2, c3]) or not 0 <= exam <= 100:
+            raise ValueError
+
+    except:
+        messagebox.showerror("Error", "Invalid marks entered!")
+        return
+
+    # Add student to list
+    students.append({
+        "code": code,
+        "name": name,
+        "c1": c1, "c2": c2, "c3": c3,
+        "coursework": c1 + c2 + c3,
+        "exam": exam,
+        "total": c1 + c2 + c3 + exam
+    })
+
+    # Save and update table
+    save_data(students)
+    show_in_table(students)
+    messagebox.showinfo("Success", "Student added.")
+
+
+def delete_record():
+    """Deletes a student using their code."""
+    students = load_data()
+    code = simpledialog.askstring("Delete", "Enter student code:")
+
+    # Without the student create's a new list
+    new_list = [s for s in students if s["code"] != code]
+
+    if len(new_list) == len(students):
+        messagebox.showinfo("Not found", "Student code not found.")
+        return
+
+    save_data(new_list)
+    show_in_table(new_list)
+    messagebox.showinfo("Deleted", "Student record deleted.")
+
+
+def update_record():
+    """Updates the name or marks of an existing student."""
+    students = load_data()
+    code = simpledialog.askstring("Update", "Enter student code:")
+
+    for s in students:
+        if s["code"] == code:
+
+            # Update name
+            new_name = simpledialog.askstring(
+                "Update", "New name (leave empty to keep same):"
+            )
+            if new_name:
+                s["name"] = new_name
+
+            # Update marks
+            for field in ["c1", "c2", "c3", "exam"]:
+                val = simpledialog.askstring(
+                    "Update", f"New {field} (leave empty to keep same):"
+                )
+                if val:
+                    try:
+                        val_int = int(val)
+
+                        # Validate marks
+                        if field == "exam" and not 0 <= val_int <= 100:
+                            raise ValueError
+                        if field != "exam" and not 0 <= val_int <= 20:
+                            raise ValueError
+
+                        s[field] = val_int
+
+                    except:
+                        messagebox.showerror("Error", f"Invalid value for {field}!")
+                        return
+
+            # Recalculate totals
+            s["coursework"] = s["c1"] + s["c2"] + s["c3"]
+            s["total"] = s["coursework"] + s["exam"]
+
+            save_data(students)
+            show_in_table(students)
+            messagebox.showinfo("Updated", "Record updated.")
+            return
+
+    messagebox.showinfo("Not found", "Student code not found.")
+
+
+# ------------------------------
+# GUI LAYOUT SETUP
+# ------------------------------
+
+# Main window
+root = tk.Tk()
+root.title("Student Manager")
+root.geometry("900x600")
+
+# Button area
+frame = tk.Frame(root)
+frame.pack(pady=10)
+
+# Buttons and their functions are listed
+buttons = [
+    ("View All Students", view_all),
+    ("View Individual Student", view_individual),
+    ("Highest Score", highest_score),
+    ("Lowest Score", lowest_score),
+    ("Sort Records", sort_records),
+    ("Add Student", add_record),
+    ("Delete Student", delete_record),
+    ("Update Student", update_record)
+]
+
+# Make the buttons appear in grid layout
+for i, (txt, func) in enumerate(buttons):
+    tk.Button(frame, text=txt, width=25, command=func).grid(
+        row=i//2, column=i % 2, padx=5, pady=5
+    )
+
+# ------------------------------
+# TABLE SETUP
+# ------------------------------
+
+columns = ("Name", "Code", "Coursework", "Exam", "Overall %", "Grade")
+tree = ttk.Treeview(root, columns=columns, show="headings", height=20)
+
+for col in columns:
+    tree.heading(col, text=col)
+    tree.column(col, width=130)
+
+tree.pack(pady=10)
+
+# ------------------------------
+# SUMMARY LABEL
+# ------------------------------
+
+summary_var = tk.StringVar()
+summary_label = tk.Label(root, textvariable=summary_var, font=("Arial", 12))
+summary_label.pack()
+
+# ------------------------------
+# START PROGRAM
+# ------------------------------
+
+root.mainloop()
