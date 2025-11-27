@@ -25,9 +25,14 @@ except ImportError:
         sys.stdout.write("\a")
         sys.stdout.flush()
 
+# ---------------- MAIN APPLICATION CLASS ----------------
 
 class MathQuizApp:
     def __init__(self, root):
+        """
+        The constructor sets up the main window, initializes quiz variables,
+        configures themes, and builds all required UI components.
+        """
         # Main window is stored here
         self.root = root
         self.root.title("🧮 Maths Quiz - A+ Version")
@@ -184,7 +189,7 @@ class MathQuizApp:
         self._pack_only(self.menu_frame)
 
     def start_quiz(self, level):
-        # This initializes the variables if quiz
+        # This initializes the variables 0f quiz
         self.difficulty = level
         self.score = 0
         self.current_q = 0
@@ -195,6 +200,10 @@ class MathQuizApp:
         self.generate_question()
 
     def generate_question(self):
+        """
+        Creates a new math question based on the chosen difficulty.
+        Also resets the answer box and restarts the timer.
+        """
         # This checks if quiz is over
         if self.current_q >= 10:
             self.show_results()
@@ -231,8 +240,12 @@ class MathQuizApp:
         self._update_timer_label()
         self._countdown()
 
-    # ---------------- Answer / Feedback ----------------
+    # ---------------- Answer checking and Feedback ----------------
     def submit_answer(self):
+        """
+        Validates user input and checks if user's answer is correct.
+        Handles scoring and moves to next question.
+        """
         self.timer_running = False
         raw = self.answer_entry.get().strip()
 
@@ -272,6 +285,10 @@ class MathQuizApp:
 
     # ---------------- Timer logic ----------------
     def _countdown(self):
+        """
+        Recursively decreases the timer every second while the
+        question is active. Uses root.after() to avoid freezing GUI.
+        """
         if not self.timer_running:
             return
 
@@ -288,6 +305,10 @@ class MathQuizApp:
         self.root.after(1000, self._countdown)
 
     def _update_timer_label(self):
+        """
+        Updates timer text and color depending on remaining time.
+        (Green → Yellow → Red)
+        """
         # Timer is updated to display with color coding
         self.timer_label.config(text=f"⏱ Time left: {self.time_left}s")
         if self.time_left > 10:
@@ -299,6 +320,10 @@ class MathQuizApp:
 
     # ---------------- Progress and Results ----------------
     def _update_progress(self, animated=False):
+        """
+        Smoothly fills the progress bar according to question number.
+        Uses tiny increments with root.after() to create animation.
+        """
         target = (self.current_q / 10) * 100
         if animated:
             # Smooth progress animation
@@ -337,6 +362,11 @@ class MathQuizApp:
 
     # ---------------- Helpers ----------------
     def _random_int(self, difficulty):
+        """
+        Returns a random number depending on difficulty.
+        Easy → single digit
+        Moderate/Advanced → two-digit numbers
+        """
         if difficulty == 1:
             return random.randint(0, 9)
         elif difficulty == 2:
