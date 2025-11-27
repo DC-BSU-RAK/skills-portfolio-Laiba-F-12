@@ -2,17 +2,18 @@ import tkinter as tk
 import random
 import os
 import threading
-import win32com.client  # Microsoft speech API
+import pyttsx3  # stable text-to-speech
 
 
 #----- USING WINDOWS VOICE CONVERT TEXT TO SPEECH -----
 #  This allows the app to speak the joke aloud.
-speaker = win32com.client.Dispatch("SAPI.SpVoice")
+engine = pyttsx3.init()
 
 def speak(text):
-    # By the use of threading run speaking independently
-    threading.Thread(target=lambda: speaker.Speak(text, 1), daemon=True).start()
-    # Flag 1 means speak independently (does not block)
+    def run():
+        engine.say(text)
+        engine.runAndWait()
+    threading.Thread(target=run, daemon=True).start()
 
 
 # ----- FROM FILE LOAD JOKES -----
